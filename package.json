@@ -1,0 +1,24 @@
+{
+  "name": "roomtunes",
+  "version": "1.0.0",
+  "description": "built on COlyseus",
+  "main": "index.js",
+  "scripts": {
+    "start": "index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "body-parser": "^1.19.0",
+    "colyseus": "^0.13.3",
+    "consolidate": "^0.16.0",
+    "cookie-parser": "^1.4.5",
+    "cors": "^2.8.5",
+    "express": "^4.16.4",
+    "express-jwt": "^5.3.1",
+    "google-auth-library": "^6.0.6",
+    "key-file-storage": "^2.2.9",
+    "mustache": "^4.0.1"
+  }
+}

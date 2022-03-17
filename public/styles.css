@@ -1,0 +1,39 @@
+.hidden{
+    visibility: hidden;
+}
+
+.video_row{
+    padding: 5px;
+    overflow: hidden;
+    cursor: pointer;
+}
+.vid_thumbnail{
+    margin:5px;
+}
+.page_btn{
+    cursor: pointer;
+}
+
+#player{
+    max-width: 100%;
+    min-height: 200px;
+}
+
+/*queue*/
+.queue_row{
+    padding: 5px;
+    overflow: hidden;
+    cursor: pointer;
+}
+#queue .vid_thumbnail{
+    margin:5px;
+    height:30px;
+}
+#queue .vid_name{
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#queue .vid_delete{
+    float:right;
+}
