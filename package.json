@@ -2,9 +2,9 @@
   "name": "roomtunes",
   "version": "1.0.0",
   "description": "built on COlyseus",
-  "main": "index.js",
+  "main": "app.js",
   "scripts": {
-    "start": "index.js",
+    "start": "app.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
@@ -19,6 +19,7 @@
     "express-jwt": "^5.3.1",
     "google-auth-library": "^6.0.6",
     "key-file-storage": "^2.2.9",
-    "mustache": "^4.0.1"
+    "mustache": "^4.0.1",
+    "winston": "^3.8.2"
   }
 }

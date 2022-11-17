@@ -174,12 +174,21 @@
             
             
             
-            
             // Connect to the chatroom
             client.joinOrCreate("room",{roomid: roomid, userid: "{{userid}}", username: "{{username}}"}).then(myroom => {
                 room = myroom;
                 console.log(room.sessionId, "joined", room.name);
-            
+                
+                setInterval(function(){
+                    console.log("ping");
+                    room.send("ping"); 
+                }, 10000)
+
+                room.onMessage("pong", (message) => {
+                  console.log("pong");
+                });
+                
+                
                 room.onMessage("chat_broadcast", (message) => {
                   console.log("message received from server", message);
                   if(message.text += ""){

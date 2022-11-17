@@ -3,6 +3,23 @@ var __importDefault = (this && this.__importDefault) || function(mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 
+
+// ********* CURRENTLY THIS WINSTON LOGGER CODE BREAKS THE APP>>> NOT SURE WHY...
+
+// const winston = require('winston');
+// // const consoleTransport = new winston.transports.Console()
+// const logger = new winston.createLogger({
+//   transports: [
+//     new winston.transports.File({ filename: 'error.log', level: 'error' }),
+//     new winston.transports.File({ filename: 'combined.log' }),
+//   ]
+// })
+
+// logger.log("testing log 123");
+// logger.error("testing ERROR");
+
+
+
 Object.defineProperty(exports, "__esModule", { value: true });
 const http = __importDefault(require("http"));
 const path = __importDefault(require("path"));
