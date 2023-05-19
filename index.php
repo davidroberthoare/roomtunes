@@ -32,15 +32,15 @@
 
   <!-- register service worker - needed for PWA install-->
   <script>
-    if ('serviceWorker' in navigator) {
-      console.log("Will the service worker register?");
-      navigator.serviceWorker.register('sw.js')
-        .then(function (reg) {
-          console.log("Yes, it did.");
-        }).catch(function (err) {
-          console.log("No it didn't. This happened:", err)
-        });
-    }
+    // if ('serviceWorker' in navigator) {
+    //   console.log("Will the service worker register?");
+    //   navigator.serviceWorker.register('/js/sw.js')
+    //     .then(function (reg) {
+    //       console.log("Yes, it did.");
+    //     }).catch(function (err) {
+    //       console.log("No it didn't. This happened:", err)
+    //     });
+    // }
   </script>
 
 
@@ -77,7 +77,7 @@
 
     function gothere() {
       if ($("#room_code").val() != '') {
-        window.location.href = "/room/" + $("#room_code").val();
+        window.location.href = "/room.php?id=" + $("#room_code").val();
       } else {
         alert("please enter a room code");
       }
