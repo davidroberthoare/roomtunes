@@ -12,13 +12,13 @@
 
 
   <!-- Global site tag (gtag.js) - Google Analytics -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-J5GDDQYN4N"></script>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=<?PHP echo getenv('G_TAG_ID');?>"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
     function gtag() {dataLayer.push(arguments);}
     gtag('js', new Date());
 
-    gtag('config', 'G-J5GDDQYN4N');
+    gtag('config', '<?PHP echo getenv('G_TAG_ID');?>');
   </script>
 
 
@@ -46,7 +46,7 @@
 
   <meta name="google-signin-scope" content="profile email">
   <meta name="google-signin-client_id"
-    content="617263820739-6q6d7g6402qqmfap0rrk6sr1alm9i3hr.apps.googleusercontent.com">
+    content="<?PHP echo getenv('G_CLIENT_ID');?>">
   <script src="https://apis.google.com/js/platform.js" async defer></script>
   <script>
     function onSignIn(googleUser) {
