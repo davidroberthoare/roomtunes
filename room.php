@@ -85,7 +85,7 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
 
     <div id='room_title' class='subtitle'>Welcome<?PHP 
         if($is_owner){
-          echo " to your room, ".$user['name'];
+          echo " to your room, <span style='font-weight:bold;font-size:1.5em;'>$roomid</span>";
         }else{
           echo ", ".$user['name'];
         }
