@@ -382,7 +382,7 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
           }
         }
         $("#playing_title").html(song.title);
-        $("#playing_username").html(song.username);
+        $("#playing_username").html(song.name);
         $("#playing_thumbnail").prop('src', song.thumbnail);
       }
 
