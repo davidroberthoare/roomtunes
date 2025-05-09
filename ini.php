@@ -1,4 +1,7 @@
 <?PHP 
+error_reporting(E_ALL);
+ini_set('display_errors', '1');
+
 $env = parse_ini_file('.env');
 
 const PATH_TO_SQLITE_FILE = 'data.db';

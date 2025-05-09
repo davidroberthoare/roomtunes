@@ -59,7 +59,14 @@
       // console.log('Given Name: ' + profile.getGivenName());
       // console.log('Family Name: ' + profile.getFamilyName());
       // console.log("Image URL: " + profile.getImageUrl());
-      // console.log("Email: " + profile.getEmail());
+      let email = profile.getEmail();
+      console.log("Email: " + email);
+
+      // ONLY LET IN KPR SCHOOL ACCOUNTS
+      if(email.indexOf('kprschools') == -1 && email.indexOf('kprdsb') == -1) {
+        alert("Please log in with a KPR School Account.");
+        return;
+      }
 
       // The ID token you need to pass to your backend:
       var id_token = googleUser.getAuthResponse().id_token;
@@ -67,7 +74,8 @@
 
       var userdata = {
         id: profile.getId(),
-        name: profile.getName()
+        name: profile.getName(),
+        email: profile.getEmail()
       };
       var cookiestring = JSON.stringify(userdata);
       Cookies.set('user', cookiestring, {expires: 60000}); // Expires in 10 minutes

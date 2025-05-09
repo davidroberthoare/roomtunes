@@ -10,8 +10,9 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
   // var_dump($user);die();
   
   // create the user record if it doesn't exist
-  $stmt = $conn->prepare("INSERT OR IGNORE INTO users (id, name) VALUES(?,?)");
-  $stmt->execute([$user['id'], $user['name']]);
+  if(!isset($user['email'])) $user['email'] = 'user@noemail.com';
+  $stmt = $conn->prepare("INSERT OR IGNORE INTO users (id, name, email) VALUES(?,?,?)");
+  $stmt->execute([$user['id'], $user['name'], $user['email'] ]);
 
   // create the room record if it doesn't exist
   $stmt = $conn->prepare("INSERT OR IGNORE INTO rooms (name, userid) VALUES(?,?)");
@@ -89,6 +90,7 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
         }else{
           echo ", ".$user['name'];
         }
+        // echo " - " . $_SERVER['HTTP_X_FORWARDED_FOR'] . " - " . $_SERVER['REMOTE_ADDR'];
       ?>
     </div>
     <div class='columns'>
@@ -100,7 +102,10 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
           <div class='box' class="owner">
             <div id='player'></div>
             <div id='playing_title' class='subtitle is-6'></div>
-            <div id='playing_username' class='title is-7'></div>
+            <div class='title is-7'>
+              <span id='playing_username'></span>
+              <a id="playing_user_ban" data-num=''> ban</a>
+            </div>
           <div class='queue_control'>
             <button class='button is-success' id='btn_play_next'>Play Next Song</button>
           </div>
@@ -158,7 +163,9 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
       <div class="card video_row template" data-id=''>
         <img src="https://bulma.io/images/placeholders/96x96.png" class='vid_thumbnail is-pulled-left'>
         <p class="title is-6 vid_name">John Smith</p>
-        <p class="subtitle is-7 vid_description">@johnsmith</p>
+        <p class="subtitle is-7">
+          <span class="vid_description">@johnsmith</span>
+        </p>
       </div>
 
       <!-- queue video row template -->
@@ -166,7 +173,10 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
         <button class="button is-small vid_delete" data-num=''>X</button>
         <img src="https://bulma.io/images/placeholders/96x96.png" class='vid_thumbnail is-pulled-left'>
         <p class="title is-6 vid_name">John Smith</p>
-        <p class="subtitle is-7 vid_description">@johnsmith</p>
+        <p class="subtitle is-7">
+          <span class="vid_description">@johnsmith</span>
+          <?PHP if($is_owner===true) { ?><a class="user_ban" data-num=''>ban</a><?PHP } ?>
+        </p>
       </div>
 
 
@@ -178,6 +188,7 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
 
       const is_owner = <?PHP echo(json_encode($is_owner));?>;
       const userid = <?PHP echo(json_encode($user['id']));?>;
+      const user = <?PHP echo(json_encode($user));?>;
 
       <?PHP if($is_owner===true){  ?>
         // init the video player
@@ -357,13 +368,19 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
           $row.data('vid_data', item);
           
           $row.find(".vid_name").html(item.title);
-          $row.find(".vid_description").html(item.name);
+          $row.find(".vid_description").html(item.name + " - " + item.owner + " - " + item.email);
           $row.find(".vid_thumbnail").prop('src', item.thumbnail);
           $row.find(".vid_delete").data('num', item.songid);
+          $row.find(".user_ban").data('num', item.owner);
 
           // if I'm not the owner, or it's not my video
           if (!is_owner && (userid != item.owner)) {
             $row.find(".vid_delete").remove();
+          }
+
+          //if I'm the room owner, and it's my video, remove the ban button so I don't ban myself...
+          if(is_owner && userid == item.owner){
+            $row.find(".user_ban").remove();
           }
 
           $("#queue").append($row);
@@ -382,8 +399,16 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
           }
         }
         $("#playing_title").html(song.title);
-        $("#playing_username").html(song.name);
+        $("#playing_username").html(song.name + " - " + song.owner + " - " + song.email);
+        $("#playing_user_ban").data('num', song.owner);
         $("#playing_thumbnail").prop('src', song.thumbnail);
+
+        if(is_owner && userid == song.owner){
+          $("#playing_user_ban").hide();
+        }else{
+          $("#playing_user_ban").show();
+        }
+
       }
 
 
@@ -429,6 +454,39 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
           );
 
 
+      });
+
+
+      function banUser(banid){
+        console.log("banning user", banid);
+        if(banid && confirm("Are you sure you want to BAN the user: "+banid)){
+
+          $.post("/api.php", {
+            roomid: "<?PHP echo $roomid;?>",
+            action:"ban",
+            banid:banid
+          },
+            function (data, textStatus, jqXHR) {
+              console.log("got back: ", data)
+              if(data.status == 'success'){
+                getQueue();
+              }else{
+                console.warn(data.status);
+              }
+            },
+            "JSON"
+          );
+        }
+      }
+
+      $("#queue").on('click', '.user_ban', function() {
+        var banid = $(this).data('num');
+        banUser(banid);
+      });
+
+      $("#playing_user_ban").on('click', function() {
+        var banid = $(this).data('num');
+        banUser(banid);
       });
 
 

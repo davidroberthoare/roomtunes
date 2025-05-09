@@ -44,9 +44,21 @@ if(isset($result[0])){
 }
 
 
+$stmt = $conn->prepare("SELECT * FROM users WHERE id=? LIMIT 1");
+$stmt->execute([$user['id']]);
+$user_row = $stmt->fetchObject();
+$is_banned = ($user_row->banned == 1);
+// var_dump($user_row);die();
+
+
 
 switch ($action) {
     case 'add':
+        if($is_banned){
+            $ret['status'] = 'error - banned';
+            output($ret);
+        }
+
         if(isset($_REQUEST['song'])){
             $ret['msg'] = "adding song...";
             $song = $ret['data'] = $_REQUEST['song'];
@@ -75,12 +87,12 @@ switch ($action) {
 
         // get the whole current song queue, and the current playing song
     case 'queue':
-        $stmt = $conn->prepare("SELECT * FROM songs INNER JOIN users on songs.owner=users.id WHERE roomid=? AND played=0 ORDER BY added");
+        $stmt = $conn->prepare("SELECT * FROM songs INNER JOIN users on songs.owner=users.id WHERE roomid=? AND played=0 AND banned=0 ORDER BY added");
         $stmt->execute([$roomid]);
         $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $ret['queue'] = $result;
 
-        $stmt = $conn->prepare("SELECT * FROM songs INNER JOIN users on songs.owner=users.id WHERE roomid=? AND played=1 LIMIT 1");
+        $stmt = $conn->prepare("SELECT * FROM songs INNER JOIN users on songs.owner=users.id WHERE roomid=? AND played=1 AND banned=0 LIMIT 1");
         $stmt->execute([$roomid]);
         $result = $stmt->fetchObject();
         $ret['playing'] = $result;
@@ -134,6 +146,26 @@ switch ($action) {
             $ret['data'] = $song;
             output($ret);
         }
+        break;
+    
+
+        //ban a user, if I'm the song or room owner
+    case 'ban':
+        if(isset($_POST['banid'])){
+            $banid = $_POST['banid'];
+        }else{
+            $ret['status'] = 'error - no user ID to ban';
+            output($ret);
+        }
+
+        if($is_owner==false){
+            $ret['status'] = 'error - not the room owner';
+            output($ret);
+        }
+
+        //ban the user...
+        $stmt = $conn->prepare("UPDATE users SET banned = 1 WHERE id=?");
+        $stmt->execute([$banid]);
         break;
     
 
