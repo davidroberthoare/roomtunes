@@ -132,7 +132,7 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
       <div class='column col_search is-half'>
         <div class='box'>
           <div class="field">
-            <div class=''>Search for a video, then click to add it to the shared playlist for this room.</div>
+            <div class=''>Search for a video, then click to add it to the shared playlist for this room. Or, just paste in a YouTube video URL or ID.</div>
             <div class="control">
               <input id="input_search" class="input is-primary" type="text" placeholder="Search...">
             </div>
@@ -239,9 +239,26 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
     <?PHP } ?>
     
             
-      // search on text update
-      $("#input_search").on("change", function() {
-        searchVids();
+      // search on text update OR handle direct YouTube URL / ID paste
+      // better input handling: input event for typing, keydown for Enter, paste with timeout
+      function handleSearchInput() {
+        var q = $("#input_search").val().trim();
+        if (q == '') return false;
+        var vid = extractYouTubeID(q);
+        if (vid) {
+          addVideoById(vid);
+        } else {
+          searchVids();
+        }
+      }
+
+      // Only trigger search/add when the user presses Enter.
+      // Typing or pasting will behave like a normal textbox and will not auto-submit.
+      $("#input_search").on("keydown input", function(e) {
+        if (e.which === 13) {
+          e.preventDefault();
+          handleSearchInput();
+        }
       });
 
       $(".page_btn").on('click', function() {
@@ -306,6 +323,68 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
           } else {
             $results.html("No videos found");
           }
+        });
+      }
+
+
+      // helper: extract YouTube video ID from many common URL patterns or accept raw 11-char id
+      function extractYouTubeID(input) {
+        if (!input) return false;
+        input = input.trim();
+        // common youtube url patterns (youtu.be/, youtube.com/watch?v=, /embed/, /v/, /shorts/)
+        var urlMatch = input.match(/(?:youtube(?:-nocookie)?\.com\/(?:watch\?v=|embed\/|v\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+        if (urlMatch && urlMatch[1]) return urlMatch[1];
+
+        // if it's a plain id (11 chars, allowed chars)
+        var idMatch = input.match(/^([A-Za-z0-9_-]{11})$/);
+        if (idMatch && idMatch[1]) return idMatch[1];
+
+        return false;
+      }
+
+
+      // helper: given a video id, fetch snippet details then post to add endpoint
+      function addVideoById(videoid) {
+        console.log('Adding direct video id', videoid);
+        var apiKey = 'AIzaSyAuQwAKHd13idhbRRHVqOs6dlokLVVAufg';
+        var url = 'https://www.googleapis.com/youtube/v3/videos?part=snippet&id=' + encodeURIComponent(videoid) + '&key=' + apiKey;
+
+        $.getJSON(url, function(data) {
+          if (data.items && data.items.length > 0) {
+            var item = data.items[0];
+            var rowdata = {
+              videoid: videoid,
+              title: item.snippet.title || ('YouTube Video ' + videoid),
+              description: item.snippet.description || '',
+              thumbnail: (item.snippet.thumbnails && item.snippet.thumbnails.default && item.snippet.thumbnails.default.url) ? item.snippet.thumbnails.default.url : ''
+            };
+
+            console.log('Direct add - sending ADD', rowdata);
+            $.post('/api.php', {
+                roomid: "<?PHP echo $roomid;?>",
+                action: 'add',
+                song: rowdata
+              },
+              function(data, textStatus, jqXHR) {
+                console.log('got back: ', data);
+                if (data.status != 'success') {
+                  if (data.status.indexOf && data.status.indexOf('too many songs') > -1) {
+                    alert("Whoops - you've already got 2 songs in the queue. Please wait until one plays then try again.");
+                  } else {
+                    alert('Whoops - there was a problem adding that song...');
+                  }
+                }
+                getQueue();
+                $("#input_search").val(''); //clear input
+              },
+              'JSON'
+            );
+
+          } else {
+            alert('Could not find video details for id: ' + videoid);
+          }
+        }).fail(function() {
+          alert('Failed to look up video details. Check your network or API key.');
         });
       }
 
