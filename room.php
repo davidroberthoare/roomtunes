@@ -136,6 +136,9 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
             <div class="control">
               <input id="input_search" class="input is-primary" type="text" placeholder="Search...">
             </div>
+            <div class="field" style="margin-top:8px;">
+              <label class="checkbox"><input type="checkbox" id="force_fallback"> Force fallback (simulate API failure)</label>
+            </div>
           </div>
 
           <div id='search_results'>
@@ -342,13 +345,29 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
         return false;
       }
 
+      // Test helper: return true if the test checkbox is checked to force the fallback path
+      function isForceFallback(){
+        try{
+          return $('#force_fallback').is(':checked');
+        }catch(e){
+          return false;
+        }
+      }
+
 
       // helper: given a video id, fetch snippet details then post to add endpoint
       function addVideoById(videoid) {
         console.log('Adding direct video id', videoid);
         var apiKey = 'AIzaSyAuQwAKHd13idhbRRHVqOs6dlokLVVAufg';
         var url = 'https://www.googleapis.com/youtube/v3/videos?part=snippet&id=' + encodeURIComponent(videoid) + '&key=' + apiKey;
-
+        // If the test checkbox is checked, simulate API failure and use the fallback path.
+        if (isForceFallback()){
+          console.log('Force fallback enabled - skipping YouTube API and using minimal add for', videoid);
+          postAddMinimal(videoid);
+          return;
+        }
+        // Try to fetch metadata from YouTube API. If that fails (quota/network/private video),
+        // fall back to adding the video with minimal metadata (so the room can still play it).
         $.getJSON(url, function(data) {
           if (data.items && data.items.length > 0) {
             var item = data.items[0];
@@ -359,33 +378,53 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
               thumbnail: (item.snippet.thumbnails && item.snippet.thumbnails.default && item.snippet.thumbnails.default.url) ? item.snippet.thumbnails.default.url : ''
             };
 
-            console.log('Direct add - sending ADD', rowdata);
-            $.post('/api.php', {
-                roomid: "<?PHP echo $roomid;?>",
-                action: 'add',
-                song: rowdata
-              },
-              function(data, textStatus, jqXHR) {
-                console.log('got back: ', data);
-                if (data.status != 'success') {
-                  if (data.status.indexOf && data.status.indexOf('too many songs') > -1) {
-                    alert("Whoops - you've already got 2 songs in the queue. Please wait until one plays then try again.");
-                  } else {
-                    alert('Whoops - there was a problem adding that song...');
-                  }
-                }
-                getQueue();
-                $("#input_search").val(''); //clear input
-              },
-              'JSON'
-            );
+            postAddSong(rowdata);
 
           } else {
-            alert('Could not find video details for id: ' + videoid);
+            // No snippet data returned for this id (private/removed/etc.) - fallback to minimal add
+            console.warn('No snippet data for video id', videoid, '- adding with minimal metadata');
+            postAddMinimal(videoid);
           }
-        }).fail(function() {
-          alert('Failed to look up video details. Check your network or API key.');
+        }).fail(function(jqxhr, textStatus, error) {
+          console.warn('YouTube API lookup failed:', textStatus, error, '- falling back to minimal add for', videoid);
+          postAddMinimal(videoid);
         });
+      }
+
+      // Helper: post a minimal song object to the API (no thumbnail/title lookup)
+      function postAddMinimal(videoid){
+        var rowdata = {
+          videoid: videoid,
+          title: 'YouTube Video ' + videoid,
+          description: '',
+          // Use YouTube's standard static thumbnail as a graceful fallback so the UI isn't blank
+          thumbnail: 'https://i.ytimg.com/vi/' + encodeURIComponent(videoid) + '/hqdefault.jpg'
+        };
+        console.log('Fallback add - sending minimal ADD', rowdata);
+        postAddSong(rowdata);
+      }
+
+      // Helper: centralize posting to /api.php so both normal and fallback flows reuse the same code
+      function postAddSong(rowdata){
+        $.post('/api.php', {
+            roomid: "<?PHP echo $roomid;?>",
+            action: 'add',
+            song: rowdata
+          },
+          function(data, textStatus, jqXHR) {
+            console.log('got back: ', data);
+            if (data.status != 'success') {
+              if (data.status.indexOf && data.status.indexOf('too many songs') > -1) {
+                alert("Whoops - you've already got 2 songs in the queue. Please wait until one plays then try again.");
+              } else {
+                alert('Whoops - there was a problem adding that song...');
+              }
+            }
+            getQueue();
+            $("#input_search").val(''); //clear input
+          },
+          'JSON'
+        );
       }
 
 
