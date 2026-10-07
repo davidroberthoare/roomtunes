@@ -50,6 +50,11 @@ $user_row = $stmt->fetchObject();
 $is_banned = ($user_row->banned == 1);
 // var_dump($user_row);die();
 
+// enforce the room's email allow/deny rules for non-owners on every request (in case rules changed after they joined)
+if(!$is_owner && !room_email_allowed($room, $user['email'] ?? '')){
+    $ret['status'] = 'error - access restricted';
+    output($ret);
+}
 
 
 switch ($action) {
@@ -166,6 +171,30 @@ switch ($action) {
         //ban the user...
         $stmt = $conn->prepare("UPDATE users SET banned = 1 WHERE id=?");
         $stmt->execute([$banid]);
+        break;
+
+
+        //update this room's email allow/deny regex filters, owner only
+    case 'update_settings':
+        if($is_owner==false){
+            $ret['status'] = 'error - not the room owner';
+            output($ret);
+        }
+
+        $allow_regex = isset($_POST['allow_regex']) ? trim($_POST['allow_regex']) : '';
+        $deny_regex = isset($_POST['deny_regex']) ? trim($_POST['deny_regex']) : '';
+
+        // validate both patterns compile before saving
+        foreach(['allow_regex' => $allow_regex, 'deny_regex' => $deny_regex] as $field => $pattern){
+            if($pattern !== '' && @preg_match('#' . str_replace('#', '\#', $pattern) . '#i', '') === false){
+                $ret['status'] = "error - invalid regex in $field";
+                output($ret);
+            }
+        }
+
+        $stmt = $conn->prepare("UPDATE rooms SET allow_regex=?, deny_regex=? WHERE name=?");
+        $stmt->execute([$allow_regex, $deny_regex, $roomid]);
+        $ret['data'] = ['allow_regex' => $allow_regex, 'deny_regex' => $deny_regex];
         break;
     
 

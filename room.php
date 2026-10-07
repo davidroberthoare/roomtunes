@@ -3,6 +3,15 @@ require("ini.php");
 
 $is_owner=false;  //default
 
+if(!isset($_GET["id"])){
+  header('Location: /');
+  exit;
+}
+if(!isset($_COOKIE["user"])){
+  header('Location: /?room=' . rawurlencode($_GET["id"]));
+  exit;
+}
+
 // setup the room
 if(isset($_GET["id"]) && isset($_COOKIE["user"])){
   $roomid = htmlspecialchars($_GET["id"]);
@@ -11,6 +20,18 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
   
   // create the user record if it doesn't exist
   if(!isset($user['email'])) $user['email'] = 'user@noemail.com';
+
+  // if the room already exists and I'm not its owner, enforce its email allow/deny rules before letting me in
+  $stmt = $conn->prepare("SELECT * FROM rooms WHERE name=?");
+  $stmt->execute([$roomid]);
+  $existing_room = $stmt->fetchAll();
+  if(isset($existing_room[0]) && $existing_room[0]['userid'] != $user['id']){
+    if(!room_email_allowed($existing_room[0], $user['email'])){
+      http_response_code(403);
+      die("Sorry, this room is restricted and your email address (".htmlspecialchars($user['email']).") isn't allowed in. Please contact the room owner.");
+    }
+  }
+
   $stmt = $conn->prepare("INSERT OR IGNORE INTO users (id, name, email) VALUES(?,?,?)");
   $stmt->execute([$user['id'], $user['name'], $user['email'] ]);
 
@@ -92,6 +113,9 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
         }
         // echo " - " . $_SERVER['HTTP_X_FORWARDED_FOR'] . " - " . $_SERVER['REMOTE_ADDR'];
       ?>
+      <?PHP if($is_owner===true){ ?>
+        <a id='btn_room_settings' title='Room settings'>&#9881;</a>
+      <?PHP } ?>
     </div>
     <div class='columns'>
       <!--PLAYER COLUMN-->
@@ -136,9 +160,9 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
             <div class="control">
               <input id="input_search" class="input is-primary" type="text" placeholder="Search...">
             </div>
-            <div class="field" style="margin-top:8px;">
+            <!-- <div class="field" style="margin-top:8px;">
               <label class="checkbox"><input type="checkbox" id="force_fallback"> Force fallback (simulate API failure)</label>
-            </div>
+            </div> -->
           </div>
 
           <div id='search_results'>
@@ -158,6 +182,48 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
 
     </div>
     <!--end section-->
+
+    <?PHP if($is_owner===true){ ?>
+    <!-- room settings modal (owner only) - mobile-friendly Bulma modal-card -->
+    <div class="modal" id="room_settings_modal">
+      <div class="modal-background"></div>
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title">Room Access Settings</p>
+          <button class="delete" aria-label="close" id="room_settings_close"></button>
+        </header>
+        <section class="modal-card-body has-text-left">
+          <div class="field">
+            <label class="label">Only allow emails matching <span class='has-text-grey'>(optional)</span></label>
+            <div class="control">
+              <input type="text" class="input" id="setting_allow_regex" placeholder="e.g. @kprschools\.ca$|@kprdsb\.net$">
+            </div>
+            <p class="help">If set, only Google logins whose email matches this pattern may join. Leave blank to allow anyone.</p>
+          </div>
+          <div class="field">
+            <label class="label">Block emails matching <span class='has-text-grey'>(optional)</span></label>
+            <div class="control">
+              <input type="text" class="input" id="setting_deny_regex" placeholder="e.g. @gmail\.com$|tempmail|mailinator">
+            </div>
+            <p class="help">If set, logins matching this pattern are always blocked, even if they match the allow pattern above.</p>
+          </div>
+          <div class="notification is-info is-light">
+            <p><strong>Regex hints:</strong></p>
+            <ul>
+              <li><code>@example\.com$</code> &mdash; matches any address ending in @example.com</li>
+              <li><code>@foo\.com$|@bar\.com$</code> &mdash; matches either domain (use <code>|</code> for "or")</li>
+              <li><code>^student[0-9]+@</code> &mdash; matches addresses starting with student + numbers</li>
+              <li>Patterns are case-insensitive and don't need surrounding slashes. Deny always wins over allow.</li>
+            </ul>
+          </div>
+        </section>
+        <footer class="modal-card-foot">
+          <button class="button is-success" id="room_settings_save">Save</button>
+          <button class="button" id="room_settings_cancel">Cancel</button>
+        </footer>
+      </div>
+    </div>
+    <?PHP } ?>
 
     <!--hidden elements-->
     <div style='display:none'>
@@ -238,6 +304,46 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
             done = false;
           }
         }
+
+        // room access settings modal
+        const room_settings = <?PHP echo json_encode(['allow_regex' => $room['allow_regex'] ?? '', 'deny_regex' => $room['deny_regex'] ?? '']); ?>;
+
+        function openRoomSettings() {
+          $("#setting_allow_regex").val(room_settings.allow_regex || '');
+          $("#setting_deny_regex").val(room_settings.deny_regex || '');
+          $("#room_settings_modal").addClass('is-active');
+        }
+
+        function closeRoomSettings() {
+          $("#room_settings_modal").removeClass('is-active');
+        }
+
+        $("#btn_room_settings").on('click', openRoomSettings);
+        $("#room_settings_close, #room_settings_cancel, .modal-background").on('click', closeRoomSettings);
+
+        $("#room_settings_save").on('click', function() {
+          var allow_regex = $("#setting_allow_regex").val().trim();
+          var deny_regex = $("#setting_deny_regex").val().trim();
+
+          $.post("/api.php", {
+              roomid: "<?PHP echo $roomid;?>",
+              action: "update_settings",
+              allow_regex: allow_regex,
+              deny_regex: deny_regex
+            },
+            function(data, textStatus, jqXHR) {
+              console.log("got back: ", data);
+              if (data.status == 'success') {
+                room_settings.allow_regex = allow_regex;
+                room_settings.deny_regex = deny_regex;
+                closeRoomSettings();
+              } else {
+                alert("Whoops - " + data.status);
+              }
+            },
+            "JSON"
+          );
+        });
 
     <?PHP } ?>
     

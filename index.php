@@ -47,48 +47,84 @@
   </script>
 
 
-  <meta name="google-signin-scope" content="profile email">
-  <meta name="google-signin-client_id"
-    content="<?PHP echo $env['G_CLIENT_ID'];?>">
-  <script src="https://apis.google.com/js/platform.js" async defer></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script>
-    function onSignIn(googleUser) {
-      var profile = googleUser.getBasicProfile();
-      console.log("ID: " + profile.getId());
-      console.log('Full Name: ' + profile.getName());
-      // console.log('Given Name: ' + profile.getGivenName());
-      // console.log('Family Name: ' + profile.getFamilyName());
-      // console.log("Image URL: " + profile.getImageUrl());
-      let email = profile.getEmail();
-      console.log("Email: " + email);
+    var requestedRoom = new URLSearchParams(window.location.search).get('room') || '';
 
-      // ONLY LET IN KPR SCHOOL ACCOUNTS
-      if(email.indexOf('kprschools') == -1 && email.indexOf('kprdsb') == -1) {
-        alert("Please log in with a KPR School Account.");
-        return;
-      }
+    // decode a JWT's payload without verifying its signature (verification happens implicitly via the Google-hosted sign-in flow)
+    function parseJwt(token) {
+      var base64Url = token.split('.')[1];
+      var base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      var jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+      return JSON.parse(jsonPayload);
+    }
 
-      // The ID token you need to pass to your backend:
-      var id_token = googleUser.getAuthResponse().id_token;
-      // console.log("ID Token: " + id_token);
+    function handleCredentialResponse(response) {
+      var profile = parseJwt(response.credential);
+      console.log("ID: " + profile.sub);
+      console.log('Full Name: ' + profile.name);
+      console.log("Email: " + profile.email);
 
       var userdata = {
-        id: profile.getId(),
-        name: profile.getName(),
-        email: profile.getEmail()
+        id: profile.sub,
+        name: profile.name,
+        email: profile.email
       };
       var cookiestring = JSON.stringify(userdata);
       Cookies.set('user', cookiestring, {expires: 60000}); // Expires in 10 minutes
 
+      if (requestedRoom) {
+        gothere();
+        return;
+      }
+      showChooser(userdata);
+    }
+
+    function showChooser(userdata) {
       $("#chooser").show();
       $(".intro_text").addClass('hidden');
-
+      if (userdata) {
+        $("#active_account")
+          .text(userdata.email)
+          .attr('title', userdata.email);
+      }
     }
+
+    window.onload = function() {
+      if (requestedRoom) {
+        $("#room_code").val(requestedRoom);
+      }
+
+      // already signed in to our app (cookie still valid) - skip straight to the room chooser
+      var existing = Cookies.get('user');
+      if (existing) {
+        try {
+          showChooser(JSON.parse(existing));
+          if (requestedRoom) {
+            gothere();
+            return;
+          }
+        } catch (e) {
+          Cookies.remove('user');
+        }
+      }
+
+      google.accounts.id.initialize({
+        client_id: "<?PHP echo $env['G_CLIENT_ID'];?>",
+        callback: handleCredentialResponse
+      });
+      google.accounts.id.renderButton(
+        document.getElementById("g_id_signin"),
+        {type: "icon", theme: "outline", size: "large", shape: "circle"}
+      );
+    };
 
 
     function gothere() {
       if ($("#room_code").val() != '') {
-        window.location.href = "/room.php?id=" + $("#room_code").val();
+        window.location.replace("/room.php?id=" + encodeURIComponent($("#room_code").val()));
       } else {
         alert("please enter a room code");
       }
@@ -111,7 +147,10 @@
         </div>
         <div class="column is-narrow has-text-right">
           <div class='intro_text'>To get started, log-in with your Google account...</div>
-          <div class="g-signin2 is-pulled-right" data-onsuccess="onSignIn" data-theme="dark"></div>
+          <div class="account_controls">
+            <span id="active_account"></span>
+            <div id="g_id_signin" title="Sign in or switch Google account"></div>
+          </div>
         </div>
       </div>
 

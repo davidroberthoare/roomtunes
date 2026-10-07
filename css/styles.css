@@ -37,3 +37,36 @@
 #queue .vid_delete{
     float:right;
 }
+
+/*room settings*/
+#btn_room_settings{
+    cursor: pointer;
+    margin-left: 8px;
+    font-size: 0.8em;
+    vertical-align: middle;
+}
+#room_settings_modal .modal-card{
+    width: 95%;
+    max-width: 480px;
+}
+
+.account_controls{
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+}
+#active_account{
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+@media screen and (max-width: 768px){
+    .account_controls{
+        justify-content: center;
+    }
+    #active_account{
+        max-width: min(55vw, 280px);
+    }
+}
