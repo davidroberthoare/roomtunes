@@ -17,14 +17,14 @@ if(!$action){
     output($ret);
 }
 
-if(!isset($_COOKIE['user'])){
-    $ret['status'] = 'error - no user cookie set';
+$user = current_user(); // verified from the signed session cookie
+if($user === null){
+    $ret['status'] = 'error - not signed in';
     output($ret);
 }
 
 //set global room and user IDs
 $roomid = htmlspecialchars($_REQUEST["roomid"]);
-$user = json_decode($_COOKIE['user'], true);
 
 //get the room record, with the proper owner
 $stmt = $conn->prepare("SELECT * FROM rooms WHERE name=?");
@@ -44,10 +44,10 @@ if(isset($result[0])){
 }
 
 
-$stmt = $conn->prepare("SELECT * FROM users WHERE id=? LIMIT 1");
-$stmt->execute([$user['id']]);
-$user_row = $stmt->fetchObject();
-$is_banned = ($user_row->banned == 1);
+// bans are per room (room_bans table)
+$stmt = $conn->prepare("SELECT 1 FROM room_bans WHERE roomid=? AND userid=?");
+$stmt->execute([$roomid, $user['id']]);
+$is_banned = ($stmt->fetchColumn() !== false);
 // var_dump($user_row);die();
 
 // enforce the room's email allow/deny rules for non-owners on every request (in case rules changed after they joined)
@@ -93,12 +93,12 @@ switch ($action) {
 
         // get the whole current song queue, and the current playing song
     case 'queue':
-        $stmt = $conn->prepare("SELECT * FROM songs INNER JOIN users on songs.owner=users.id WHERE roomid=? AND played=0 AND banned=0 ORDER BY position, added");
+        $stmt = $conn->prepare("SELECT * FROM songs INNER JOIN users on songs.owner=users.id WHERE roomid=? AND played=0 AND NOT EXISTS (SELECT 1 FROM room_bans WHERE room_bans.roomid=songs.roomid AND room_bans.userid=songs.owner) ORDER BY position, added");
         $stmt->execute([$roomid]);
         $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $ret['queue'] = $result;
 
-        $stmt = $conn->prepare("SELECT * FROM songs INNER JOIN users on songs.owner=users.id WHERE roomid=? AND played=1 AND banned=0 LIMIT 1");
+        $stmt = $conn->prepare("SELECT * FROM songs INNER JOIN users on songs.owner=users.id WHERE roomid=? AND played=1 AND NOT EXISTS (SELECT 1 FROM room_bans WHERE room_bans.roomid=songs.roomid AND room_bans.userid=songs.owner) LIMIT 1");
         $stmt->execute([$roomid]);
         $result = $stmt->fetchObject();
         $ret['playing'] = $result;
@@ -107,17 +107,24 @@ switch ($action) {
 
         //update the current playing song to 'played', and set the next one in the line to 'playing
     case 'next':
+        if($is_owner==false){
+            $ret['status'] = 'error - not the room owner';
+            output($ret);
+        }
         //set any playing songs to played in this room
         $stmt = $conn->prepare("UPDATE songs SET played=2 WHERE roomid=? AND played=1");
         $stmt->execute([$roomid]);
 
         //set the first unplayed song to playing
-        $stmt = $conn->prepare("SELECT * FROM songs WHERE roomid=? AND played=0 ORDER BY position, added LIMIT 1");
+        // (skipping any songs from users banned from this room, same as the queue list)
+        $stmt = $conn->prepare("SELECT * FROM songs WHERE roomid=? AND played=0 AND NOT EXISTS (SELECT 1 FROM room_bans WHERE room_bans.roomid=songs.roomid AND room_bans.userid=songs.owner) ORDER BY position, added LIMIT 1");
         $stmt->execute([$roomid]);
         $song = $stmt->fetchObject();
 
-        $stmt = $conn->prepare("UPDATE songs SET played=1 WHERE songid=?");
-        $stmt->execute([$song->songid]);
+        if($song){
+            $stmt = $conn->prepare("UPDATE songs SET played=1 WHERE songid=?");
+            $stmt->execute([$song->songid]);
+        }
         break;
         
 
@@ -170,8 +177,8 @@ switch ($action) {
         }
 
         //ban the user...
-        $stmt = $conn->prepare("UPDATE users SET banned = 1 WHERE id=?");
-        $stmt->execute([$banid]);
+        $stmt = $conn->prepare("INSERT OR IGNORE INTO room_bans (roomid, userid) VALUES (?,?)");
+        $stmt->execute([$roomid, $banid]);
         break;
 
 
@@ -212,6 +219,33 @@ switch ($action) {
             $stmt->execute([$i + 1, $songid, $roomid]);
         }
         $conn->commit();
+        break;
+
+
+        //list the users banned from this room, owner only
+    case 'banned_list':
+        if($is_owner==false){
+            $ret['status'] = 'error - not the room owner';
+            output($ret);
+        }
+        $stmt = $conn->prepare("SELECT users.id, users.name, users.email FROM room_bans INNER JOIN users ON users.id=room_bans.userid WHERE room_bans.roomid=? ORDER BY users.name");
+        $stmt->execute([$roomid]);
+        $ret['data'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        break;
+
+
+        //un-ban a user from this room, owner only
+    case 'unban':
+        if($is_owner==false){
+            $ret['status'] = 'error - not the room owner';
+            output($ret);
+        }
+        if(!isset($_POST['banid'])){
+            $ret['status'] = 'error - no user ID to un-ban';
+            output($ret);
+        }
+        $stmt = $conn->prepare("DELETE FROM room_bans WHERE roomid=? AND userid=?");
+        $stmt->execute([$roomid, $_POST['banid']]);
         break;
 
 

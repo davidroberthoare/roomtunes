@@ -7,19 +7,16 @@ if(!isset($_GET["id"])){
   header('Location: /');
   exit;
 }
-if(!isset($_COOKIE["user"])){
+$user = current_user(); // verified from the signed session cookie
+if($user === null){
   header('Location: /?room=' . rawurlencode($_GET["id"]));
   exit;
 }
 
 // setup the room
-if(isset($_GET["id"]) && isset($_COOKIE["user"])){
+if(isset($_GET["id"])){
   $roomid = htmlspecialchars($_GET["id"], ENT_QUOTES, 'UTF-8');
-  $user = json_decode($_COOKIE['user'], true);
-  // var_dump($user);die();
-  
-  // create the user record if it doesn't exist
-  if(!isset($user['email'])) $user['email'] = 'user@noemail.com';
+
 
   // if the room already exists and I'm not its owner, enforce its email allow/deny rules before letting me in
   $stmt = $conn->prepare("SELECT * FROM rooms WHERE name=?");
@@ -186,10 +183,17 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
       <div class="modal-background"></div>
       <div class="modal-card">
         <header class="modal-card-head">
-          <p class="modal-card-title">Room Access Settings</p>
+          <p class="modal-card-title">Room Settings</p>
           <button class="delete" aria-label="close" id="room_settings_close"></button>
         </header>
         <section class="modal-card-body has-text-left">
+          <div class="tabs is-boxed is-small mb-3">
+            <ul>
+              <li class="is-active" data-tab="tab_access"><a>Access</a></li>
+              <li data-tab="tab_banned"><a>Banned users</a></li>
+            </ul>
+          </div>
+          <div id="tab_access">
           <div class="field">
             <label class="label">Only allow emails matching <span class='has-text-grey'>(optional)</span></label>
             <div class="control">
@@ -212,6 +216,11 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
               <li><code>^student[0-9]+@</code> &mdash; matches addresses starting with student + numbers</li>
               <li>Patterns are case-insensitive and don't need surrounding slashes. Deny always wins over allow.</li>
             </ul>
+          </div>
+          </div>
+          <div id="tab_banned" style="display:none">
+            <p class="help mb-3">People banned from this room. Un-banning only affects this room.</p>
+            <div id="banned_list">Loading...</div>
           </div>
         </section>
         <footer class="modal-card-foot">
@@ -311,9 +320,44 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
         }
 
         // room access settings modal
+        const ROOMID = <?PHP echo json_encode($roomid, JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT);?>;
         const room_settings = <?PHP echo json_encode(['allow_regex' => $room['allow_regex'] ?? '', 'deny_regex' => $room['deny_regex'] ?? '']); ?>;
 
+        function showSettingsTab(tab) {
+          $("#room_settings_modal .tabs li").removeClass('is-active').filter('[data-tab="' + tab + '"]').addClass('is-active');
+          $("#tab_access, #tab_banned").hide();
+          $("#" + tab).show();
+          $("#room_settings_save").toggle(tab == 'tab_access'); // only the access tab has anything to save
+          if (tab == 'tab_banned') loadBanned();
+        }
+
+        $("#room_settings_modal .tabs li").on('click', function() {
+          showSettingsTab($(this).data('tab'));
+        });
+
+        function loadBanned() {
+          $("#banned_list").text("Loading...");
+          $.post("/api.php", {roomid: ROOMID, action: "banned_list"}, function(data) {
+            var $list = $("#banned_list").empty();
+            if (data.status != 'success') { $list.text("Whoops - " + data.status); return; }
+            if (!data.data.length) { $list.text("No banned users."); return; }
+            $.each(data.data, function(i, u) {
+              var $row = $("<div class='level is-mobile mb-2'>");
+              var $who = $("<div class='level-left'>").append($("<span class='truncate'>").text(u.name + " · " + u.email));
+              var $btn = $("<button class='button is-small is-light'>Un-ban</button>").on('click', function() {
+                $btn.addClass('is-loading');
+                $.post("/api.php", {roomid: ROOMID, action: "unban", banid: u.id}, function() {
+                  loadBanned();
+                  getQueue(); // their songs show up in the queue again
+                }, "JSON");
+              });
+              $list.append($row.append($who, $("<div class='level-right'>").append($btn)));
+            });
+          }, "JSON");
+        }
+
         function openRoomSettings() {
+          showSettingsTab('tab_access');
           $("#setting_allow_regex").val(room_settings.allow_regex || '');
           $("#setting_deny_regex").val(room_settings.deny_regex || '');
           $("#room_settings_modal").addClass('is-active');

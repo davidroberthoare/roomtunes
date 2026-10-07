@@ -1,5 +1,6 @@
 <?PHP 
   require("ini.php");
+  $session_user = current_user(); // verified from the signed session cookie, or null
 ?>
 <!DOCTYPE html>
 <html>
@@ -51,35 +52,24 @@
   <script>
     var requestedRoom = new URLSearchParams(window.location.search).get('room') || '';
 
-    // decode a JWT's payload without verifying its signature (verification happens implicitly via the Google-hosted sign-in flow)
-    function parseJwt(token) {
-      var base64Url = token.split('.')[1];
-      var base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      var jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-      }).join(''));
-      return JSON.parse(jsonPayload);
-    }
+    // the user signed in on this page load, from a verified server-side session (null if not signed in)
+    var sessionUser = <?PHP echo json_encode($session_user); ?>;
 
+    // hand Google's credential to the server, which verifies it with Google and starts the signed session
     function handleCredentialResponse(response) {
-      var profile = parseJwt(response.credential);
-      console.log("ID: " + profile.sub);
-      console.log('Full Name: ' + profile.name);
-      console.log("Email: " + profile.email);
-
-      var userdata = {
-        id: profile.sub,
-        name: profile.name,
-        email: profile.email
-      };
-      var cookiestring = JSON.stringify(userdata);
-      Cookies.set('user', cookiestring, {expires: 60000}); // Expires in 10 minutes
-
-      if (requestedRoom) {
-        gothere();
-        return;
-      }
-      showChooser(userdata);
+      $.post("/login.php", {credential: response.credential}, function(data) {
+        if (data.status != 'success') {
+          alert("Sign-in failed - " + data.status);
+          return;
+        }
+        if (requestedRoom) {
+          gothere();
+          return;
+        }
+        showChooser(data.user);
+      }, "JSON").fail(function() {
+        alert("Sign-in failed - please try again.");
+      });
     }
 
     function showChooser(userdata) {
@@ -98,16 +88,11 @@
       }
 
       // already signed in to our app (cookie still valid) - skip straight to the room chooser
-      var existing = Cookies.get('user');
-      if (existing) {
-        try {
-          showChooser(JSON.parse(existing));
-          if (requestedRoom) {
-            gothere();
-            return;
-          }
-        } catch (e) {
-          Cookies.remove('user');
+      if (sessionUser) {
+        showChooser(sessionUser);
+        if (requestedRoom) {
+          gothere();
+          return;
         }
       }
 
