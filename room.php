@@ -14,7 +14,7 @@ if(!isset($_COOKIE["user"])){
 
 // setup the room
 if(isset($_GET["id"]) && isset($_COOKIE["user"])){
-  $roomid = htmlspecialchars($_GET["id"]);
+  $roomid = htmlspecialchars($_GET["id"], ENT_QUOTES, 'UTF-8');
   $user = json_decode($_COOKIE['user'], true);
   // var_dump($user);die();
   
@@ -73,7 +73,7 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>RoomTunes</title>
 
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.0/css/bulma.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
   <link rel="stylesheet" href="/css/styles.css">
 
 
@@ -101,64 +101,61 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
 </head>
 
 <body>
-  <a href='/' class='is-pulled-left' style='margin:10px;'>HOME</a>
-  <section class='section has-text-centered'>
-
-
-    <div id='room_title' class='subtitle'>Welcome<?PHP 
-        if($is_owner){
-          echo " to your room, <span style='font-weight:bold;font-size:1.5em;'>$roomid</span>";
-        }else{
-          echo ", ".$user['name'];
-        }
-        // echo " - " . $_SERVER['HTTP_X_FORWARDED_FOR'] . " - " . $_SERVER['REMOTE_ADDR'];
-      ?>
-      <?PHP if($is_owner===true){ ?>
-        <a id='btn_room_settings' title='Room settings'>&#9881;</a>
-      <?PHP } ?>
+  <nav class='level is-mobile room_bar px-3 py-2 mb-0'>
+    <div class='level-left'><a href='/' class='level-item has-text-weight-semibold'>&larr; Home</a></div>
+    <div id='room_title' class='level-item has-text-centered is-size-6 truncate'>
+      <?PHP if($is_owner){ ?><strong><?PHP echo $roomid; ?></strong><?PHP }else{ ?>Room <strong><?PHP echo $roomid; ?></strong> &middot; <?PHP echo htmlspecialchars($user['name']); ?><?PHP } ?>
     </div>
-    <div class='columns'>
+    <div class='level-right'>
+      <?PHP if($is_owner===true){ ?><a id='btn_room_settings' class='level-item' title='Room settings'>&#9881;</a><?PHP } else { ?><span class='level-item'>&nbsp;</span><?PHP } ?>
+    </div>
+  </nav>
+  <section class='section has-text-centered px-3 py-3'>
+    <div class='columns room_columns'>
       <!--PLAYER COLUMN-->
-      <div class='column col_player is-half'>
+      <div class='column col_player is-half-tablet'>
 
         <!-- OWNER ONLY -->
         <?PHP if($is_owner===true){  ?>
-          <div class='box' class="owner">
+          <div class='box player_box p-3 mb-3'>
             <div id='player'></div>
-            <div id='playing_title' class='subtitle is-6'></div>
-            <div class='title is-7'>
+            <div id='playing_title' class='subtitle is-6 mt-3 mb-1 line_clamp'></div>
+            <div class='is-size-7 has-text-grey mb-3'>
               <span id='playing_username'></span>
-              <a id="playing_user_ban" data-num=''> ban</a>
+              <a id="playing_user_ban" data-num='' class='has-text-danger'> ban</a>
             </div>
-          <div class='queue_control'>
-            <button class='button is-success' id='btn_play_next'>Play Next Song</button>
+            <div class='queue_control'>
+              <button class='button is-success is-fullwidth-mobile' id='btn_play_next'>Play Next Song</button>
+            </div>
           </div>
-        </div>
         <?PHP } ?>
         
         <!-- PLAYER ONLY -->
         <?PHP if($is_owner===false){  ?>
-          <div class='box' class="player">
-            <div class='title is-7'>Now Playing</div>
+          <div class='box player_box p-3 mb-3'>
+            <div class='is-size-7 has-text-weight-bold has-text-grey is-uppercase mb-2'>Now Playing</div>
             <img id='playing_thumbnail' />
-            <div id='playing_title' class='subtitle is-5'></div>
-            <div id='playing_username' class='title is-7'></div>
+            <div id='playing_title' class='subtitle is-6 mt-2 mb-1 line_clamp'></div>
+            <div id='playing_username' class='is-size-7 has-text-grey'></div>
           </div>
         <?PHP } ?>
 
-        <div id='queue'>
-          (no videos in the queue)
+        <div class='queue_wrap'>
+          <h2 class='is-size-6 has-text-weight-bold has-text-left mb-2'>Up Next <span id='queue_count' class='tag is-rounded'>0</span></h2>
+          <div id='queue' class='queue_list'>
+            (no videos in the queue)
+          </div>
         </div>
       </div>
 
 
       <!--SEARCH COLUMN-->
-      <div class='column col_search is-half'>
+      <div class='column col_search is-half-tablet'>
         <div class='box'>
           <div class="field">
-            <div class=''>Search for a video, then click to add it to the shared playlist for this room. Or, just paste in a YouTube video URL or ID.</div>
+            <p class='help mb-2 has-text-left'>Search for a video and tap it to add to the room's playlist, or paste a YouTube URL or ID.</p>
             <div class="control">
-              <input id="input_search" class="input is-primary" type="text" placeholder="Search...">
+              <input id="input_search" class="input is-primary" type="search" autocomplete="off" placeholder="Search...">
             </div>
             <!-- <div class="field" style="margin-top:8px;">
               <label class="checkbox"><input type="checkbox" id="force_fallback"> Force fallback (simulate API failure)</label>
@@ -169,9 +166,9 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
 
           </div>
 
-          <div class='pagination'>
-            <div id='go_prev' class='page_btn hidden'>&lt;Prev</div>
-            <div id='go_next' class='page_btn hidden'>Next&gt;</div>
+          <div class='pagination is-centered mt-3'>
+            <a id='go_prev' class='pagination-previous page_btn hidden'>&lsaquo; Prev</a>
+            <a id='go_next' class='pagination-next page_btn hidden'>Next &rsaquo;</a>
           </div>
 
         </div>
@@ -229,29 +226,37 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
     <div style='display:none'>
 
       <!-- video row template -->
-      <div class="card video_row template" data-id=''>
-        <img src="https://bulma.io/images/placeholders/96x96.png" class='vid_thumbnail is-pulled-left'>
-        <p class="title is-6 vid_name">John Smith</p>
-        <p class="subtitle is-7">
-          <span class="vid_description">@johnsmith</span>
-        </p>
+      <div class="box video_row template p-1 mb-1" data-id=''>
+        <div class='media is-align-items-center'>
+          <figure class='media-left mr-3'><img src="https://bulma.io/images/placeholders/96x96.png" class='vid_thumbnail'></figure>
+          <div class='media-content has-text-left'>
+            <p class="is-size-7 has-text-weight-semibold vid_name line_clamp">John Smith</p>
+            <p class="is-size-7 has-text-grey vid_description truncate">@johnsmith</p>
+          </div>
+        </div>
       </div>
 
       <!-- queue video row template -->
-      <div class="card queue_row template" data-id=''>
-        <button class="button is-small vid_delete" data-num=''>X</button>
-        <img src="https://bulma.io/images/placeholders/96x96.png" class='vid_thumbnail is-pulled-left'>
-        <p class="title is-6 vid_name">John Smith</p>
-        <p class="subtitle is-7">
-          <span class="vid_description">@johnsmith</span>
-          <?PHP if($is_owner===true) { ?><a class="user_ban" data-num=''>ban</a><?PHP } ?>
-        </p>
+      <div class="box queue_row template p-1 mb-1" data-id=''>
+        <div class='media is-align-items-center'>
+          <?PHP if($is_owner===true) { ?><span class='drag_handle has-text-grey-light mr-2' title='Drag to reorder'>&#8942;</span><?PHP } ?>
+          <figure class='media-left mr-3'><img src="https://bulma.io/images/placeholders/96x96.png" class='vid_thumbnail'></figure>
+          <div class='media-content has-text-left'>
+            <p class="is-size-7 has-text-weight-semibold vid_name line_clamp">John Smith</p>
+            <p class="is-size-7 has-text-grey truncate">
+              <span class="vid_description">@johnsmith</span>
+              <?PHP if($is_owner===true) { ?><a class="user_ban has-text-danger" data-num=''>ban</a><?PHP } ?>
+            </p>
+          </div>
+          <div class='media-right ml-2'><button class="delete vid_delete" aria-label="remove" data-num=''></button></div>
+        </div>
       </div>
 
 
     </div>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
     <script src="/js/cookies.js"></script>
+    <?PHP if($is_owner===true){ ?><script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script><?PHP } ?>
 
     <script>
 
@@ -275,8 +280,8 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
         var now_playing = false;
         function onYouTubeIframeAPIReady() {
           player = new YT.Player('player', {
-            height: '200',
-            width: '300',
+            height: '100%',
+            width: '100%',
             //   videoId: 'M7lc1UVf-VE',
             events: {
               'onReady': onPlayerReady,
@@ -326,7 +331,7 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
           var deny_regex = $("#setting_deny_regex").val().trim();
 
           $.post("/api.php", {
-              roomid: "<?PHP echo $roomid;?>",
+              roomid: <?PHP echo json_encode($roomid, JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT);?>,
               action: "update_settings",
               allow_regex: allow_regex,
               deny_regex: deny_regex
@@ -513,7 +518,7 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
       // Helper: centralize posting to /api.php so both normal and fallback flows reuse the same code
       function postAddSong(rowdata){
         $.post('/api.php', {
-            roomid: "<?PHP echo $roomid;?>",
+            roomid: <?PHP echo json_encode($roomid, JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT);?>,
             action: 'add',
             song: rowdata
           },
@@ -540,7 +545,7 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
         var rowdata = $(this).data('vid_data');
         console.log("song row clicked - sending ADD", rowdata);
           $.post("/api.php", {
-            roomid: "<?PHP echo $roomid;?>",
+            roomid: <?PHP echo json_encode($roomid, JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT);?>,
             action:"add", 
             song:rowdata
           },
@@ -564,7 +569,7 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
       function getQueue(){
         console.log("getting song queue")
         $.post("/api.php", {
-            roomid: "<?PHP echo $roomid;?>",
+            roomid: <?PHP echo json_encode($roomid, JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT);?>,
             action:"queue", 
           },
             function (response, textStatus, jqXHR) {
@@ -581,18 +586,24 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
       }
 
 
+      var queue_dragging = false;
+
       function buildQueue(data){
+        // don't rebuild the list out from under the owner while they're dragging a row
+        if(queue_dragging) return;
         // update UI with updated queue
         $("#queue").empty();
+        $("#queue_count").text(data.length);
         $.each(data, function (i, item) {
           console.log('adding queue row', item);
           $row = $(".queue_row.template").clone();
           $row.removeClass("template");
 
           $row.data('vid_data', item);
+          $row.attr('data-songid', item.songid);
           
           $row.find(".vid_name").html(item.title);
-          $row.find(".vid_description").html(item.name + " - " + item.owner + " - " + item.email);
+          $row.find(".vid_description").html(item.name + " · " + item.email);
           $row.find(".vid_thumbnail").prop('src', item.thumbnail);
           $row.find(".vid_delete").data('num', item.songid);
           $row.find(".user_ban").data('num', item.owner);
@@ -623,7 +634,7 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
           }
         }
         $("#playing_title").html(song.title);
-        $("#playing_username").html(song.name + " - " + song.owner + " - " + song.email);
+        $("#playing_username").html(song.name + " · " + song.email);
         $("#playing_user_ban").data('num', song.owner);
         $("#playing_thumbnail").prop('src', song.thumbnail);
 
@@ -640,7 +651,7 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
         console.log("trying to play next song...")
         
         $.post("/api.php", {
-            roomid: "<?PHP echo $roomid;?>",
+            roomid: <?PHP echo json_encode($roomid, JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT);?>,
             action:"next"
           },
             function (data, textStatus, jqXHR) {
@@ -662,7 +673,7 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
         console.log("deleting vid", id);
 
         $.post("/api.php", {
-            roomid: "<?PHP echo $roomid;?>",
+            roomid: <?PHP echo json_encode($roomid, JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT);?>,
             action:"delete",
             songid:id
           },
@@ -686,7 +697,7 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
         if(banid && confirm("Are you sure you want to BAN the user: "+banid)){
 
           $.post("/api.php", {
-            roomid: "<?PHP echo $roomid;?>",
+            roomid: <?PHP echo json_encode($roomid, JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT);?>,
             action:"ban",
             banid:banid
           },
@@ -713,6 +724,31 @@ if(isset($_GET["id"]) && isset($_COOKIE["user"])){
         banUser(banid);
       });
 
+
+      // owner can drag the waiting songs into a new order
+      if(is_owner){
+        new Sortable(document.getElementById('queue'), {
+          draggable: '.queue_row',
+          handle: '.drag_handle',
+          animation: 150,
+          ghostClass: 'has-background-light',
+          onStart: function(){ queue_dragging = true; },
+          onEnd: function(){
+            queue_dragging = false;
+            var ids = $("#queue .queue_row").map(function(){ return $(this).attr('data-songid'); }).get();
+            $.post("/api.php", {
+                roomid: <?PHP echo json_encode($roomid, JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT);?>,
+                action: "reorder",
+                songids: ids
+              },
+              function(response){
+                if(response.status != 'success') console.warn("reorder failed", response.status);
+              },
+              "JSON"
+            ).always(getQueue); // re-render from the server whether or not the save worked
+          }
+        });
+      }
 
       //set the polling...
       setInterval(getQueue, 10000);

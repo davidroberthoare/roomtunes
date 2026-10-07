@@ -79,8 +79,9 @@ switch ($action) {
             }
 
             // then add it...
-            $stmt = $conn->prepare("INSERT INTO songs (roomid, owner, videoid, title, description, thumbnail) values (?,?,?,?,?,?)");
-            $stmt->execute([$roomid, $user['id'], $song['videoid'], $song['title'], $song['description'], $song['thumbnail']]);
+            // new songs go to the end of the queue
+            $stmt = $conn->prepare("INSERT INTO songs (roomid, owner, videoid, title, description, thumbnail, position) values (?,?,?,?,?,?,(SELECT COALESCE(MAX(position),0)+1 FROM songs WHERE roomid=?))");
+            $stmt->execute([$roomid, $user['id'], $song['videoid'], $song['title'], $song['description'], $song['thumbnail'], $roomid]);
 
 
         }else{
@@ -92,7 +93,7 @@ switch ($action) {
 
         // get the whole current song queue, and the current playing song
     case 'queue':
-        $stmt = $conn->prepare("SELECT * FROM songs INNER JOIN users on songs.owner=users.id WHERE roomid=? AND played=0 AND banned=0 ORDER BY added");
+        $stmt = $conn->prepare("SELECT * FROM songs INNER JOIN users on songs.owner=users.id WHERE roomid=? AND played=0 AND banned=0 ORDER BY position, added");
         $stmt->execute([$roomid]);
         $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $ret['queue'] = $result;
@@ -111,7 +112,7 @@ switch ($action) {
         $stmt->execute([$roomid]);
 
         //set the first unplayed song to playing
-        $stmt = $conn->prepare("SELECT * FROM songs WHERE roomid=? AND played=0 ORDER BY added LIMIT 1");
+        $stmt = $conn->prepare("SELECT * FROM songs WHERE roomid=? AND played=0 ORDER BY position, added LIMIT 1");
         $stmt->execute([$roomid]);
         $song = $stmt->fetchObject();
 
@@ -197,6 +198,22 @@ switch ($action) {
         $ret['data'] = ['allow_regex' => $allow_regex, 'deny_regex' => $deny_regex];
         break;
     
+
+        //set the order of the waiting songs in this room, owner only. expects songids[] in the new order
+    case 'reorder':
+        if($is_owner==false){
+            $ret['status'] = 'error - not the room owner';
+            output($ret);
+        }
+        $ids = isset($_POST['songids']) && is_array($_POST['songids']) ? array_values($_POST['songids']) : [];
+        $stmt = $conn->prepare("UPDATE songs SET position=? WHERE songid=? AND roomid=? AND played=0");
+        $conn->beginTransaction();
+        foreach($ids as $i => $songid){
+            $stmt->execute([$i + 1, $songid, $roomid]);
+        }
+        $conn->commit();
+        break;
+
 
     default:
         # code...

@@ -2,48 +2,97 @@
     visibility: hidden;
 }
 
-.video_row{
-    padding: 5px;
-    overflow: hidden;
+/*rows (search results + queue) - layout comes from Bulma media/box*/
+.video_row, .queue_row{
     cursor: pointer;
 }
 .vid_thumbnail{
-    margin:5px;
+    width: 56px;
+    height: 42px;
+    object-fit: cover;
+    border-radius: 4px;
+    display: block;
+}
+.media-content{
+    min-width: 0; /* lets the text truncate inside the flex row */
+}
+.truncate{
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.line_clamp{
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 .page_btn{
     cursor: pointer;
 }
 
+/*player*/
 #player{
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: 6px;
+}
+#playing_thumbnail{
     max-width: 100%;
-    min-height: 200px;
+    max-height: 180px;
+    border-radius: 6px;
+}
+.room_bar{
+    min-height: 0;
+}
+.room_bar .level-item{
+    margin: 0;
+}
+#room_title{
+    flex: 1 1 auto;
+    min-width: 0;
+    display: block;
+}
+#btn_room_settings{
+    font-size: 1.25rem;
+    margin-left: 0;
 }
 
 /*queue*/
-.queue_row{
-    padding: 5px;
-    overflow: hidden;
-    cursor: pointer;
+.queue_list{
+    text-align: left;
 }
-#queue .vid_thumbnail{
-    margin:5px;
-    height:30px;
+.queue_list .box, .video_row.box{
+    box-shadow: 0 0 0 1px #ededed;
 }
-#queue .vid_name{
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+#search_results .box{
+    margin-bottom: 0.25rem;
 }
-#queue .vid_delete{
-    float:right;
+
+/*mobile: one column, and the search comes before the queue so a long queue can't push it off screen*/
+@media screen and (max-width: 768px){
+    .room_columns{
+        display: flex;
+        flex-direction: column;
+        margin: 0;
+    }
+    .room_columns > .column{
+        padding: 0;
+    }
+    .col_player{
+        display: contents;
+    }
+    .player_box{ order: 1; }
+    .col_search{ order: 2; margin: 0 0 0.75rem; }
+    .queue_wrap{ order: 3; }
+    .is-fullwidth-mobile{
+        width: 100%;
+    }
 }
 
 /*room settings*/
 #btn_room_settings{
     cursor: pointer;
-    margin-left: 8px;
-    font-size: 0.8em;
-    vertical-align: middle;
 }
 #room_settings_modal .modal-card{
     width: 95%;
@@ -69,4 +118,18 @@
     #active_account{
         max-width: min(55vw, 280px);
     }
+}
+/*don't reserve space for pagination until there are pages to go to*/
+.pagination:not(:has(.page_btn:not(.hidden))){
+    display: none;
+}
+
+/*queue drag handle (owner only)*/
+.drag_handle{
+    cursor: grab;
+    touch-action: none; /* lets the handle be dragged on touch screens without scrolling the page */
+    user-select: none;
+    font-size: 1.1rem;
+    line-height: 1;
+    padding: 0.5rem 0.25rem;
 }
