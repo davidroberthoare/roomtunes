@@ -138,7 +138,9 @@ if(isset($_GET["id"])){
         <?PHP } ?>
 
         <div class='queue_wrap'>
-          <h2 class='is-size-6 has-text-weight-bold has-text-left mb-2'>Up Next <span id='queue_count' class='tag is-rounded'>0</span></h2>
+          <h2 class='is-size-6 has-text-weight-bold has-text-left mb-2'>Up Next <span id='queue_count' class='tag is-rounded'>0</span>
+            <?PHP if($is_owner===true){ ?><button id='btn_clear_queue' class='button is-small is-danger is-light is-pulled-right'>Clear queue</button><?PHP } ?>
+          </h2>
           <div id='queue' class='queue_list'>
             (no videos in the queue)
           </div>
@@ -709,6 +711,21 @@ if(isset($_GET["id"])){
             "JSON"
           );
 
+      });
+
+
+      $("#btn_clear_queue").on('click', function() {
+        if(!confirm("Remove all waiting songs from the queue?")) return;
+        $.post("/api.php", {
+            roomid: <?PHP echo json_encode($roomid, JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT);?>,
+            action:"clear_queue"
+          },
+            function (data) {
+              if(data.status != 'success') console.warn(data.status);
+              getQueue();
+            },
+            "JSON"
+          );
       });
 
 

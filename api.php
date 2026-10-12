@@ -128,6 +128,17 @@ switch ($action) {
         break;
         
 
+        //remove all waiting (unplayed) songs from this room's queue, owner only. The currently playing song is left alone
+    case 'clear_queue':
+        if($is_owner==false){
+            $ret['status'] = 'error - not the room owner';
+            output($ret);
+        }
+        $stmt = $conn->prepare("DELETE FROM songs WHERE roomid=? AND played=0");
+        $stmt->execute([$roomid]);
+        break;
+
+
         //delete the specified song, if I'm the song or room owner
     case 'delete':
         if(isset($_POST['songid'])){
